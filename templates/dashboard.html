@@ -1,0 +1,22 @@
+<html>
+<head>
+    <title>Inicio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+
+<body> 
+
+    <h1 align="center" style="color: white;">Bienvenido</h1>
+    <p align="center" style="color: white;">Has iniciado sesión correctamente.</p>
+
+    <center>
+    <a href="{{ url_for('nueva_venta') }}"><button style="background-color:green; color:white">Nueva Venta</button></a>
+        <a href="{{ url_for('inventario') }}"><button style="background-color: yellow;">Inventario</button></a>
+        <a href="{{ url_for('movimientos') }}"><button style="background-color: red;color: white;">Movimientos</button></a>
+    </center>
+   <button style="width: 150px; height: 40px; position: fixed; bottom: 20px; right: 20px; background-color: red; color: white;"
+        onclick="window.location.href='/logout'">Cerrar sesión</button>
+
+
+</body>
+</html>

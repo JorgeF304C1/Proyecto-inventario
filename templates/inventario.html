@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inventario</title>
+    <style>
+        body { background: #222; color: #eee; font-family: Arial; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; border: 1px solid #444; text-align: center; }
+        th { background-color: #0a74da; }
+    </style>
+</head>
+<body>
+    <h1>Inventario</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Equipo</th>
+                <th>Tipo</th>
+                <th>Jugador</th>
+                <th>Talla</th>
+                <th>Cantidad</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in productos %}
+            <tr>
+                <td>{{ p.equipo }}</td>
+                <td>{{ p.tipo_camiseta }}</td>
+                <td>{{ p.jugador }}{% if p.dorsal %} #{{ p.dorsal }}{% endif %}</td>
+                <td>{{ p.talla }}</td>
+                <td>{{ p.cantidad }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <br>
+    <a href="/dashboard"><button style="padding: 10px 15px; background: #0a74da; color: white; border: none; cursor: pointer; border-radius: 4px; top: 20px; right: 20px; position: absolute;">Volver</button></a>
+</body>
+</html>

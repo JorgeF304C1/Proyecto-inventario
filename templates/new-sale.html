@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Nueva Venta con Carrito</title>
+    <style>
+        body { background: #222; color: #eee; font-family: Arial, sans-serif; padding: 20px; }
+        label, select, input, button { display: block; margin: 8px 0; }
+        select, input { width: 250px; padding: 8px; background: #333; color: #eee; border: 1px solid #555; border-radius: 4px;}
+        button { padding: 10px 15px; background: #0a74da; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #095aab; }
+        button.delete-btn { background: #c00; }
+        button.delete-btn:hover { background: #a00; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; border: 1px solid #444; text-align: center; }
+        h1, h2 { border-bottom: 2px solid #0a74da; padding-bottom: 5px;}
+        .error { color: #f33; font-weight: bold; margin-top: 10px; }
+        #totalGeneral { font-size: 1.5em; font-weight: bold; color: #5fde5f; }
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+
+<h1>Nueva Venta</h1>
+
+<div>
+    <label for="equipo">Equipo:</label>
+    <select id="equipo" required></select>
+
+    <label for="tipo">Tipo de Camiseta:</label>
+    <select id="tipo" required></select>
+
+    <label for="jugador">Jugador:</label>
+    <select id="jugador" required></select>
+
+    <label for="talla">Talla:</label>
+    <select id="talla" required></select>
+
+    <label for="cantidad">Cantidad:</label>
+    <input type="number" id="cantidad" min="1" value="1" required />
+
+    <label for="precio_total">Precio Total (para esta selección):</label>
+    <input type="number" id="precio_total" step="0.01" min="0" required />
+
+    <button onclick="agregarAlCarrito()">Añadir al carrito</button>
+</div>
+
+<h2>Carrito</h2>
+<table id="tablaCarrito">
+    <thead>
+        <tr>
+            <th>Equipo</th>
+            <th>Tipo</th>
+            <th>Jugador</th>
+            <th>Talla</th>
+            <th>Cantidad</th>
+            <th>Precio Total</th>
+            <th>Acción</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div>
+    <label for="descripcion">Descripción general (opcional):</label>
+    <input type="text" id="descripcion" placeholder="Comentario para toda la venta" />
+</div>
+
+<div>
+    <h3>Total General: $<span id="totalGeneral">0.00</span></h3>
+</div>
+
+<button onclick="registrarVenta()">Registrar Venta</button>
+
+<a href="{{ url_for('dashboard')}}" ><button style="position:fixed;right: 20px;top: 20px;width: auto;height: auto;" >Volver</button></a>
+
+<div id="mensaje" class="error"></div>
+
+<script>
+    // Inicializa los datos de productos desde Flask
+    const productos = {{ productos | tojson | safe }};
+    let carrito = [];
+
+    // Elementos del DOM
+    const equipoSel = document.getElementById("equipo");
+    const tipoSel = document.getElementById("tipo");
+    const jugadorSel = document.getElementById("jugador");
+    const tallaSel = document.getElementById("talla");
+    const cantidadInp = document.getElementById("cantidad");
+    const precioTotalInp = document.getElementById("precio_total");
+    const descripcionInp = document.getElementById("descripcion");
+    const tablaBody = document.querySelector("#tablaCarrito tbody");
+    const mensajeDiv = document.getElementById("mensaje");
+    const totalGeneralSpan = document.getElementById("totalGeneral");
+
+    // --- LÓGICA DE FILTRADO ---
+
+    function limpiarYAgregarOpcion(select, texto) {
+        select.innerHTML = `<option value="">-- Seleccione ${texto} --</option>`;
+    }
+
+    function poblarSelect(select, opciones) {
+        const opcionesUnicas = [...new Set(opciones)];
+        opcionesUnicas.forEach(op => {
+            select.add(new Option(op, op));
+        });
+    }
+
+    // Al cambiar el Equipo
+    equipoSel.addEventListener('change', () => {
+        limpiarYAgregarOpcion(tipoSel, 'un tipo');
+        limpiarYAgregarOpcion(jugadorSel, 'un jugador');
+        limpiarYAgregarOpcion(tallaSel, 'una talla');
+        if (equipoSel.value) {
+            const tipos = productos.filter(p => p.equipo === equipoSel.value).map(p => p.tipo_camiseta);
+            poblarSelect(tipoSel, tipos);
+        }
+    });
+
+    // Al cambiar el Tipo de Camiseta
+    tipoSel.addEventListener('change', () => {
+        limpiarYAgregarOpcion(jugadorSel, 'un jugador');
+        limpiarYAgregarOpcion(tallaSel, 'una talla');
+        if (tipoSel.value) {
+            const jugadores = productos.filter(p => p.equipo === equipoSel.value && p.tipo_camiseta === tipoSel.value).map(p => p.jugador);
+            poblarSelect(jugadorSel, jugadores);
+        }
+    });
+
+    // Al cambiar el Jugador
+    jugadorSel.addEventListener('change', () => {
+        limpiarYAgregarOpcion(tallaSel, 'una talla');
+        if (jugadorSel.value) {
+            const tallas = productos.filter(p => p.equipo === equipoSel.value && p.tipo_camiseta === tipoSel.value && p.jugador === jugadorSel.value).map(p => p.talla);
+            poblarSelect(tallaSel, tallas);
+        }
+    });
+
+    // --- LÓGICA DEL CARRITO ---
+
+    function agregarAlCarrito() {
+        mensajeDiv.textContent = "";
+
+        const item = {
+            equipo: equipoSel.value,
+            tipo_camiseta: tipoSel.value,
+            jugador: jugadorSel.value,
+            talla: tallaSel.value,
+            cantidad: parseInt(cantidadInp.value),
+            precio_total: parseFloat(precioTotalInp.value)
+        };
+
+        if (!item.equipo || !item.tipo_camiseta || !item.jugador || !item.talla || item.cantidad <= 0 || isNaN(item.precio_total) || item.precio_total < 0) {
+            mensajeDiv.textContent = "Por favor, complete todos los campos correctamente.";
+            return;
+        }
+
+        const productoEnInventario = productos.find(p => p.equipo === item.equipo && p.tipo_camiseta === item.tipo_camiseta && p.jugador === item.jugador && p.talla === item.talla);
+        if (!productoEnInventario) {
+            mensajeDiv.textContent = "Producto no encontrado.";
+            return;
+        }
+        
+        const cantidadEnCarrito = carrito.filter(p => p.equipo === item.equipo && p.tipo_camiseta === item.tipo_camiseta && p.jugador === item.jugador && p.talla === item.talla)
+                                         .reduce((sum, p) => sum + p.cantidad, 0);
+
+        if (item.cantidad + cantidadEnCarrito > productoEnInventario.cantidad) {
+            mensajeDiv.textContent = `Stock insuficiente. Disponible: ${productoEnInventario.cantidad}, en carrito: ${cantidadEnCarrito}.`;
+            return;
+        }
+
+        carrito.push(item);
+        actualizarTablaCarrito();
+        limpiarCamposSeleccion();
+    }
+
+    function actualizarTablaCarrito() {
+        tablaBody.innerHTML = "";
+        let totalGeneral = 0;
+
+        carrito.forEach((item, index) => {
+            const row = tablaBody.insertRow();
+            row.innerHTML = `
+                <td>${item.equipo}</td>
+                <td>${item.tipo_camiseta}</td>
+                <td>${item.jugador}</td>
+                <td>${item.talla}</td>
+                <td>${item.cantidad}</td>
+                <td>${item.precio_total.toFixed(2)}</td>
+                <td><button class="delete-btn" onclick="eliminarDelCarrito(${index})">Eliminar</button></td>
+            `;
+            totalGeneral += item.precio_total;
+        });
+
+        totalGeneralSpan.textContent = totalGeneral.toFixed(2);
+    }
+
+    function eliminarDelCarrito(index) {
+        carrito.splice(index, 1);
+        actualizarTablaCarrito();
+    }
+
+    function limpiarCamposSeleccion() {
+        cantidadInp.value = 1;
+        precioTotalInp.value = "";
+    }
+
+    function registrarVenta() {
+        mensajeDiv.textContent = "";
+        if (carrito.length === 0) {
+            mensajeDiv.textContent = "El carrito está vacío.";
+            return;
+        }
+
+        const dataParaEnviar = {
+            carrito: carrito,
+            descripcion: descripcionInp.value,
+            precio_total_general: parseFloat(totalGeneralSpan.textContent)
+        };
+
+        fetch('/registrar_venta', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(dataParaEnviar)
+        })
+        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok) {
+                throw new Error(data.error || "Error desconocido del servidor");
+            }
+            alert(data.mensaje);
+            carrito = [];
+            actualizarTablaCarrito();
+            descripcionInp.value = "";
+        })
+        .catch(err => {
+            mensajeDiv.textContent = `Error al registrar la venta: ${err.message}`;
+        });
+    }
+
+    // --- INICIALIZACIÓN ---
+    function inicializar() {
+        limpiarYAgregarOpcion(equipoSel, 'un equipo');
+        limpiarYAgregarOpcion(tipoSel, 'un tipo');
+        limpiarYAgregarOpcion(jugadorSel, 'un jugador');
+        limpiarYAgregarOpcion(tallaSel, 'una talla');
+        
+        const equipos = productos.map(p => p.equipo);
+        poblarSelect(equipoSel, equipos);
+    }
+
+    // Llama a la función de inicialización cuando el DOM esté listo
+    document.addEventListener('DOMContentLoaded', inicializar);
+
+</script>
+
+</body>
+</html>

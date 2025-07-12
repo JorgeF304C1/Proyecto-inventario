@@ -1,22 +1,27 @@
-from flask import Flask,request,redirect,session,render_template
+from flask import Flask, request, redirect, session, render_template, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-
-
+import os
 
 app = Flask(__name__)
 app.secret_key = '123456'
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///inventario.db'
+# --- CONFIGURACIÓN DE LA BASE DE DATOS ---
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'inventario.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+# --- MODELOS ---
 
-# Modelos
 class Producto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(100), unique=True, nullable=False)
+    equipo = db.Column(db.String(100), nullable=False)
+    tipo_camiseta = db.Column(db.String(20), nullable=False)
+    jugador = db.Column(db.String(100), nullable=False)
+    dorsal = db.Column(db.String(10), nullable=True)
+    talla = db.Column(db.String(10), nullable=False)
     cantidad = db.Column(db.Integer, default=0)
 
 class Movimiento(db.Model):
@@ -24,62 +29,197 @@ class Movimiento(db.Model):
     producto_id = db.Column(db.Integer, db.ForeignKey('producto.id'), nullable=False)
     usuario = db.Column(db.String(50), nullable=False)
     cantidad = db.Column(db.Integer, nullable=False)
-    precio_unitario = db.Column(db.Float, nullable=False)
-    total = db.Column(db.Float, nullable=False)
+    precio_movimiento = db.Column(db.Float, nullable=False)
     descripcion = db.Column(db.String(255))
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Crear tablas y cargar productos una vez
-with app.app_context():
-    db.create_all()
+# Helper para convertir productos a dict
+def producto_to_dict(p):
+    return {
+        "id": p.id, "equipo": p.equipo, "tipo_camiseta": p.tipo_camiseta,
+        "jugador": p.jugador, "dorsal": p.dorsal, "talla": p.talla, "cantidad": p.cantidad
+    }
 
-    if not Producto.query.first():
-        producto1 = Producto(nombre='Camiseta Real Madrid', cantidad=10)
-        producto2 = Producto(nombre='Camiseta Barcelona', cantidad=8)
-        db.session.add_all([producto1, producto2])
-        db.session.commit()
-
-
-
-
-
-
-
-
-
-
+# --- RUTAS ---
 
 @app.route('/', methods=['GET', 'POST'])
-
 def login():
-
+    error = None
     Usuarios = {'jorge': '1234', 'karim': '1234'}
-
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        
         if username in Usuarios and Usuarios[username] == password:
             session['username'] = username
             return redirect('/dashboard')
         else:
-            return "Credenciales incorrectas, intente de nuevo."
-    
-    return render_template('index.html')
+            error = "Credenciales incorrectas, intente de nuevo."
+    return render_template('index.html', error=error)
 
 @app.route('/dashboard')
 def dashboard():
     if 'username' in session:
-        return f"Bienvenido {session['username']} al dashboard."
-    else:
-        return redirect('/')
-    
+        return render_template('dashboard.html')
+    return redirect('/')
+
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/')
 
+@app.route('/nueva_venta')
+def nueva_venta():
+    if 'username' not in session:
+        return redirect('/')
+    productos = Producto.query.all()
+    productos_serializados = [producto_to_dict(p) for p in productos]
+    return render_template('new-sale.html', productos=productos_serializados)
+
+@app.route('/registrar_venta', methods=['POST'])
+def registrar_venta():
+    if 'username' not in session:
+        return redirect('/')
+
+    try:
+        data = request.json
+        carrito = data.get("carrito", [])
+        descripcion = data.get("descripcion", "")
+
+        if not carrito:
+            return jsonify({"error": "El carrito está vacío."}), 400
+
+        # Verificar stock primero (sin modificar nada)
+        for item in carrito:
+            producto = Producto.query.filter_by(
+                equipo=item["equipo"], tipo_camiseta=item["tipo_camiseta"],
+                jugador=item["jugador"], talla=item["talla"]
+            ).first()
+            if not producto or producto.cantidad < item["cantidad"]:
+                return jsonify({"error": f"Stock insuficiente para {item['jugador']} talla {item['talla']}"}), 400
+
+        # Procesar venta
+        for item in carrito:
+            producto = Producto.query.filter_by(
+                equipo=item["equipo"], tipo_camiseta=item["tipo_camiseta"],
+                jugador=item["jugador"], talla=item["talla"]
+            ).first()
+            producto.cantidad -= item["cantidad"]
+
+            movimiento = Movimiento(
+                producto_id=producto.id,
+                usuario=session['username'],
+                cantidad=item["cantidad"],
+                precio_movimiento=item["precio_total"],
+                descripcion=descripcion
+            )
+            db.session.add(movimiento)
+
+        db.session.commit()
+        return jsonify({"mensaje": "Venta registrada correctamente."})
+
+    except Exception as e:
+        db.session.rollback()  # <-- Revertir cambios en caso de error
+        return jsonify({"error": f"Error al registrar la venta: {str(e)}"}), 500
+
+@app.route('/inventario')
+def inventario():
+    if 'username' not in session:
+        return redirect('/')
+    productos = Producto.query.all()
+    return render_template('inventario.html', productos=productos)
+
+@app.route('/movimientos')
+def movimientos():
+    if 'username' not in session:
+        return redirect('/')
+    
+    movimientos = (
+        db.session.query(
+            Movimiento,
+            Producto.equipo,
+            Producto.jugador,
+            Producto.talla
+        )
+        .join(Producto, Movimiento.producto_id == Producto.id)
+        .order_by(Movimiento.fecha.desc())  # <-- Ordenar por fecha (más nuevos primero)
+        .all()
+    )
+    
+    return render_template('movimientos.html', movimientos=movimientos)
+# --- BLOQUE DE INICIALIZACIÓN DE LA APP ---
+if __name__ == '__main__':
+   
+
+    app.run(debug=True)
 
 
-
-
+    """   with app.app_context():
+        db.create_all()
+        
+        if not Producto.query.first():
+            print("Base de datos vacía, insertando inventario completo...")
+            
+            # CAMBIO: Aquí está tu lista completa de productos.
+            productos_iniciales = [
+                # Barcelona Local
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="S", cantidad=3),
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="M", cantidad=5),
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="L", cantidad=5),
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="XL", cantidad=2),
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Raphinha", dorsal="11", talla="S", cantidad=2),
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Raphinha", dorsal="11", talla="M", cantidad=3),
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Raphinha", dorsal="11", talla="L", cantidad=3),
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Raphinha", dorsal="11", talla="XL", cantidad=1),
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="S", cantidad=2),
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="M", cantidad=3),
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="L", cantidad=3),
+                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="XL", cantidad=1),
+                # Barcelona Visitante
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="S", cantidad=2),
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="M", cantidad=5),
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="L", cantidad=5),
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="XL", cantidad=2),
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Raphinha", dorsal="11", talla="S", cantidad=2),
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Raphinha", dorsal="11", talla="M", cantidad=3),
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Raphinha", dorsal="11", talla="L", cantidad=3),
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Raphinha", dorsal="11", talla="XL", cantidad=1),
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="S", cantidad=2),
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="M", cantidad=3),
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="L", cantidad=3),
+                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="XL", cantidad=1),
+                # Madrid Local
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="S", cantidad=2),
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="M", cantidad=4),
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="L", cantidad=3),
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="XL", cantidad=1),
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="S", cantidad=2),
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="M", cantidad=4),
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="L", cantidad=3),
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="XL", cantidad=1),
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="S", cantidad=2),
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="M", cantidad=4),
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="L", cantidad=3),
+                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="XL", cantidad=1),
+                # Madrid Visitante
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="S", cantidad=2),
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="M", cantidad=4),
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="L", cantidad=3),
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="XL", cantidad=1),
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="S", cantidad=2),
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="M", cantidad=4),
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="L", cantidad=3),
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="XL", cantidad=1),
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="S", cantidad=2),
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="M", cantidad=4),
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="L", cantidad=3),
+                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="XL", cantidad=1),
+                # Camisetas para niños
+                Producto(equipo="Barcelona", tipo_camiseta="niños", jugador="Lamine Yamal", dorsal="10", talla="16", cantidad=10),
+                Producto(equipo="Barcelona", tipo_camiseta="niños", jugador="Pedri", dorsal="8", talla="16", cantidad=5),
+                Producto(equipo="Madrid", tipo_camiseta="niños", jugador="Mbappé", dorsal="10", talla="16", cantidad=5),
+                Producto(equipo="Madrid", tipo_camiseta="niños", jugador="Vini Jr", dorsal="7", talla="16", cantidad=5),
+                Producto(equipo="Madrid", tipo_camiseta="niños", jugador="Bellingham", dorsal="5", talla="16", cantidad=5)
+            ]
+            db.session.bulk_save_objects(productos_iniciales)
+            db.session.commit()
+            print("¡Inventario completo insertado!")"""

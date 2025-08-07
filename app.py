@@ -32,6 +32,7 @@ class Movimiento(db.Model):
     precio_movimiento = db.Column(db.Float, nullable=False)
     descripcion = db.Column(db.String(255))
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
+    anulado = db.Column(db.Boolean, default=False) 
 
 # Helper para convertir productos a dict
 def producto_to_dict(p):
@@ -58,9 +59,14 @@ def login():
 
 @app.route('/dashboard')
 def dashboard():
-    if 'username' in session:
-        return render_template('dashboard.html')
-    return redirect('/')
+    if 'username' not in session:
+        return redirect('/')
+    
+    total_ventas = db.session.query(
+        db.func.sum(Movimiento.precio_movimiento)
+    ).filter(Movimiento.anulado == False).scalar() or 0
+    
+    return render_template('dashboard.html', total_ventas=total_ventas)
 
 @app.route('/logout')
 def logout():
@@ -141,19 +147,50 @@ def movimientos():
             Producto.talla
         )
         .join(Producto, Movimiento.producto_id == Producto.id)
+        .filter(Movimiento.anulado == False)
         .order_by(Movimiento.fecha.desc())  # <-- Ordenar por fecha (más nuevos primero)
         .all()
     )
     
     return render_template('movimientos.html', movimientos=movimientos)
+
+@app.route('/anular_movimiento/<int:id_movimiento>', methods=['POST'])
+def anular_movimiento(id_movimiento):
+    if 'username' not in session:
+        return redirect('/')
+    
+    movimiento = Movimiento.query.get_or_404(id_movimiento)
+    
+    if movimiento.anulado:
+        return jsonify({'error': 'Este movimiento ya está anulado'}), 400
+    
+    movimiento.anulado = True
+    producto = Producto.query.get(movimiento.producto_id)
+    producto.cantidad += movimiento.cantidad
+    
+    try:
+        db.session.commit()
+        # Calcular nuevo total después de anular
+        nuevo_total = db.session.query(
+            db.func.sum(Movimiento.precio_movimiento)
+        ).filter(Movimiento.anulado == False).scalar() or 0
+        
+        return jsonify({
+            'success': 'Movimiento anulado correctamente',
+            'nuevo_total': nuevo_total
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+    
 # --- BLOQUE DE INICIALIZACIÓN DE LA APP ---
 if __name__ == '__main__':
    
 
-    app.run(debug=True)
 
 
-    """   with app.app_context():
+
+    with app.app_context():
         db.create_all()
         
         if not Producto.query.first():
@@ -222,4 +259,6 @@ if __name__ == '__main__':
             ]
             db.session.bulk_save_objects(productos_iniciales)
             db.session.commit()
-            print("¡Inventario completo insertado!")"""
+            print("¡Inventario completo insertado!") 
+
+app.run(debug=True)

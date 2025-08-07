@@ -31,6 +31,13 @@
                 <td>{{ movimiento.cantidad }}</td>
                 <td>${{ movimiento.precio_movimiento }}</td>
                 <td>{{ movimiento.descripcion or '-' }}</td>
+                <td>{% if movimiento.anulado %}<span style="color: red;">Anulado</span>{% else %}<span style="color: green;">Activo</span>{% endif %}</td>
+                 <td>
+                        {% if not movimiento.anulado %}
+            <button onclick="anularMovimiento({{ movimiento.id }})" style="background-color: #ff4444; color: white; border: none; padding: 5px 10px; cursor: pointer;">Anular</button>
+                        {% endif %}
+                    </td>
+
             </tr>
             {% endfor %}
         </tbody>
@@ -38,4 +45,33 @@
     <br>
     <a href="/dashboard"><button style="padding: 10px 15px; background: #0a74da; color: white; border: none; cursor: pointer; border-radius: 4px; top: 20px; right: 20px; position: absolute;">Volver</button></a>
 </body>
+
+<script>
+    function anularMovimiento(id) {
+    if (confirm('¿Estás seguro de que quieres anular este movimiento?')) {
+        fetch(`/anular_movimiento/${id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+            } else {
+                alert(data.success);
+                // Actualizar el total en la página sin recargar
+                document.getElementById('totalVentas').textContent = data.nuevo_total.toFixed(2);
+                // Recargar solo la tabla de movimientos
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ocurrió un error al anular el movimiento');
+        });
+    }
+}
+</script>
 </html>

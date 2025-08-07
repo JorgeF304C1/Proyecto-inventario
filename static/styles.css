@@ -2,9 +2,13 @@ button {
 
     width: 300px;
     height: 80px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
 body {
-    background-color: #0F0F0F;
+    background-color: #222;
     font-family: Arial, sans-serif;
 }
+

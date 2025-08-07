@@ -2,12 +2,18 @@
 <head>
     <title>Inicio</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="\static\styles.css">
 </head>
 
 <body> 
 
     <h1 align="center" style="color: white;">Bienvenido</h1>
     <p align="center" style="color: white;">Has iniciado sesión correctamente.</p>
+
+     <div style="text-align: center; margin: 20px; padding: 15px; background: #333; border-radius: 5px;">
+        <h3 style="color: #0a74da;">Total de Ventas Acumuladas</h3>
+        <p id="totalVentas"   style="font-size: 24px; color: #5fde5f;">${{ "%.2f"|format(total_ventas) }}</p>
+    </div>
 
     <center>
     <a href="{{ url_for('nueva_venta') }}"><button style="background-color:green; color:white">Nueva Venta</button></a>

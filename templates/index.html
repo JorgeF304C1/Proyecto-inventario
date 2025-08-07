@@ -4,13 +4,33 @@
 </head>
 <body> 
 
-    <h1 align="center">Login</h1>
+    <h1 align="center" style="color: white; font-weight: bold;">Login</h1>
 
     {% if error %}
         <p style="color: red; text-align: center;">{{ error }}</p>
     {% endif %}
 
+    <style>
+body {
+    background-color: #222;
+    font-family: 'Courier New', Courier, monospace;
+    color: white;
+}
+button {
+    background-color: #0a74da;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+label {
+    left: 100px;
+}   
+    </style>
+
     <form action="/" method="post" align="center">
+        
         <label>Usuario:</label>
         <input type="text" name="username" required>
         <br><br>

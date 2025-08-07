@@ -202,7 +202,7 @@ if __name__ == '__main__':
             print("Base de datos vacía, insertando inventario completo...")
             
             # CAMBIO: Aquí está tu lista completa de productos.
-            productos_iniciales = [
+            """"productos_iniciales = [
                 # Barcelona Local
                 Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="S", cantidad=3),
                 Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="M", cantidad=5),
@@ -264,6 +264,6 @@ if __name__ == '__main__':
             ]
             db.session.bulk_save_objects(productos_iniciales)
             db.session.commit()
-            print("¡Inventario completo insertado!") 
+            print("¡Inventario completo insertado!") """
 
 # app.run(debug=True) Se quita temporalmente

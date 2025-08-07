@@ -7,9 +7,14 @@ app = Flask(__name__)
 app.secret_key = '123456'
 
 # --- CONFIGURACIÓN DE LA BASE DE DATOS ---
-basedir = os.path.abspath(os.path.dirname(__file__))
+"""basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'inventario.db')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False"""
+#Se quito temporalmente
+
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(basedir, 'inventario.db'))
+if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
+    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://')
 
 db = SQLAlchemy(app)
 
@@ -261,4 +266,4 @@ if __name__ == '__main__':
             db.session.commit()
             print("¡Inventario completo insertado!") 
 
-app.run(debug=True)
+# app.run(debug=True) Se quita temporalmente

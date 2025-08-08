@@ -12,9 +12,14 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'in
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False"""
 #Se quito temporalmente
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(basedir, 'inventario.db'))
-if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://')
+# --- CONFIGURACIÓN DE LA BASE DE DATOS ---
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+# La variable DATABASE_URL la configuraremos en el servidor de PythonAnywhere.
+# Si no la encuentra, usará la base de datos local sqlite para pruebas.
+default_db_uri = 'sqlite:///' + os.path.join(basedir, 'inventario.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', default_db_uri)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
@@ -202,68 +207,67 @@ if __name__ == '__main__':
             print("Base de datos vacía, insertando inventario completo...")
             
             # CAMBIO: Aquí está tu lista completa de productos.
-            """"productos_iniciales = [
-                # Barcelona Local
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="S", cantidad=3),
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="M", cantidad=5),
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="L", cantidad=5),
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="XL", cantidad=2),
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Raphinha", dorsal="11", talla="S", cantidad=2),
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Raphinha", dorsal="11", talla="M", cantidad=3),
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Raphinha", dorsal="11", talla="L", cantidad=3),
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Raphinha", dorsal="11", talla="XL", cantidad=1),
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="S", cantidad=2),
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="M", cantidad=3),
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="L", cantidad=3),
-                Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="XL", cantidad=1),
-                # Barcelona Visitante
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="S", cantidad=2),
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="M", cantidad=5),
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="L", cantidad=5),
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="XL", cantidad=2),
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Raphinha", dorsal="11", talla="S", cantidad=2),
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Raphinha", dorsal="11", talla="M", cantidad=3),
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Raphinha", dorsal="11", talla="L", cantidad=3),
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Raphinha", dorsal="11", talla="XL", cantidad=1),
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="S", cantidad=2),
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="M", cantidad=3),
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="L", cantidad=3),
-                Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="XL", cantidad=1),
-                # Madrid Local
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="S", cantidad=2),
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="M", cantidad=4),
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="L", cantidad=3),
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="XL", cantidad=1),
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="S", cantidad=2),
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="M", cantidad=4),
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="L", cantidad=3),
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="XL", cantidad=1),
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="S", cantidad=2),
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="M", cantidad=4),
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="L", cantidad=3),
-                Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="XL", cantidad=1),
-                # Madrid Visitante
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="S", cantidad=2),
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="M", cantidad=4),
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="L", cantidad=3),
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="XL", cantidad=1),
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="S", cantidad=2),
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="M", cantidad=4),
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="L", cantidad=3),
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="XL", cantidad=1),
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="S", cantidad=2),
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="M", cantidad=4),
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="L", cantidad=3),
-                Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="XL", cantidad=1),
-                # Camisetas para niños
-                Producto(equipo="Barcelona", tipo_camiseta="niños", jugador="Lamine Yamal", dorsal="10", talla="16", cantidad=10),
-                Producto(equipo="Barcelona", tipo_camiseta="niños", jugador="Pedri", dorsal="8", talla="16", cantidad=5),
-                Producto(equipo="Madrid", tipo_camiseta="niños", jugador="Mbappé", dorsal="10", talla="16", cantidad=5),
-                Producto(equipo="Madrid", tipo_camiseta="niños", jugador="Vini Jr", dorsal="7", talla="16", cantidad=5),
-                Producto(equipo="Madrid", tipo_camiseta="niños", jugador="Bellingham", dorsal="5", talla="16", cantidad=5)
-            ]
+            productos_iniciales = [
+         # Barcelona Local
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="S", cantidad=3),
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="M", cantidad=5),
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="L", cantidad=5),
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Lamine Yamal", dorsal="10", talla="XL", cantidad=2),
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Rashford", dorsal="14", talla="S", cantidad=2),
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Rashford", dorsal="14", talla="M", cantidad=3),
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Rashford", dorsal="14", talla="L", cantidad=3),
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Rashford", dorsal="14", talla="XL", cantidad=1),
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="S", cantidad=2),
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="M", cantidad=3),
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="L", cantidad=3),
+         Producto(equipo="Barcelona", tipo_camiseta="local", jugador="Pedri", dorsal="8", talla="XL", cantidad=1),
+         # Barcelona Visitante
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="S", cantidad=2),
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="M", cantidad=5),
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="L", cantidad=5),
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Lamine Yamal", dorsal="10", talla="XL", cantidad=2),
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Rashford", dorsal="14", talla="S", cantidad=2),
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Rashford", dorsal="14", talla="M", cantidad=3),
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Rashford", dorsal="14", talla="L", cantidad=3),
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Rashford", dorsal="14", talla="XL", cantidad=1),
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="S", cantidad=2),
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="M", cantidad=3),
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="L", cantidad=3),
+         Producto(equipo="Barcelona", tipo_camiseta="visitante", jugador="Pedri", dorsal="8", talla="XL", cantidad=1),
+         # Madrid Local
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="S", cantidad=2),
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="M", cantidad=4),
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="L", cantidad=3),
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Vini Jr", dorsal="7", talla="XL", cantidad=1),
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="S", cantidad=2),
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="M", cantidad=4),
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="L", cantidad=3),
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Mbappé", dorsal="10", talla="XL", cantidad=1),
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="S", cantidad=2),
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="M", cantidad=4),
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="L", cantidad=3),
+         Producto(equipo="Madrid", tipo_camiseta="local", jugador="Valverde", dorsal="8", talla="XL", cantidad=1),
+         # Madrid Visitante
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="S", cantidad=2),
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="M", cantidad=4),
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="L", cantidad=3),
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Vini Jr", dorsal="7", talla="XL", cantidad=1),
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="S", cantidad=2),
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="M", cantidad=4),
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="L", cantidad=3),
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Mbappé", dorsal="10", talla="XL", cantidad=1),
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="S", cantidad=2),
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="M", cantidad=4),
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="L", cantidad=3),
+         Producto(equipo="Madrid", tipo_camiseta="visitante", jugador="Valverde", dorsal="8", talla="XL", cantidad=1),
+         # Camisetas para niños
+         Producto(equipo="Barcelona", tipo_camiseta="niños", jugador="Lamine Yamal", dorsal="10", talla="16", cantidad=10),
+         Producto(equipo="Barcelona", tipo_camiseta="niños", jugador="Pedri", dorsal="8", talla="16", cantidad=5),
+         Producto(equipo="Madrid", tipo_camiseta="niños", jugador="Mbappé", dorsal="10", talla="16", cantidad=10),
+         Producto(equipo="Madrid", tipo_camiseta="niños", jugador="Vini Jr", dorsal="7", talla="16", cantidad=5),
+       ]
             db.session.bulk_save_objects(productos_iniciales)
             db.session.commit()
-            print("¡Inventario completo insertado!") """
+            print("¡Inventario completo insertado!") 
 
 # app.run(debug=True) Se quita temporalmente
